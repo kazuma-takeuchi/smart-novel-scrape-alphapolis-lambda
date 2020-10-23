@@ -1,0 +1,79 @@
+{
+  "StartAt": "GetQuery",
+  "States": {
+    "GetQuery": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:ap-northeast-1:227389759256:function:Z_getTweetQuery",
+      "InputPath": "$",
+      "ResultPath": "$.query_list",
+      "OutputPath": "$.query_list",
+      "Next": "MapSearchTweet"
+    },
+    "MapSearchTweet": {
+      "Type": "Map",
+      "InputPath": "$",
+      "ItemsPath": "$.query",
+      "ResultPath": "$",
+      "MaxConcurrency": 5,
+      "Iterator": {
+        "StartAt": "ChoiceWhichAPI",
+        "States": {
+           "ChoiceWhichAPI": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Not": {
+                "Variable": "$.API",
+                "StringEquals": "search"
+                },
+                "Next": "PassState"
+              }
+            ],
+            "Default": "GetTweet"
+          },
+          "GetTweet": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:ap-northeast-1:227389759256:function:Z_getTweet",
+            "InputPath": "$",
+            "ResultPath": "$.get_result",
+            "OutputPath": "$.get_result",
+            "Next": "ChoiceIsThereAnyTweet"
+          },
+          "ChoiceIsThereAnyTweet": {
+            "Type": "Choice",
+            "Choices": [
+              {
+                "Variable": "$.status_code",
+                "NumericEquals": 200,
+                "Next": "PutTweet"
+              }
+            ],
+            "Default": "PassState"
+          },
+          "PutTweet": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:ap-northeast-1:227389759256:function:Z_putTweetDynamoDB",
+            "InputPath": "$.tweet",
+            "ResultPath": "$.result",
+            "OutputPath": "$.query",
+            "Next": "UpdateQuery"
+          },
+          "UpdateQuery": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:ap-northeast-1:227389759256:function:Z_updateTweetQuery",
+            "InputPath": "$",
+            "ResultPath": "$.result",
+            "OutputPath": "$",
+            "End": true
+          },
+          "PassState": {
+            "Type": "Pass",
+            "ResultPath": "$",
+            "End": true
+           }
+        } 
+      },
+      "End": true
+    }
+  } 
+}
